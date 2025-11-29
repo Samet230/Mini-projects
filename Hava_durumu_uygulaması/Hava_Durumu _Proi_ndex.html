@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid Glass Weather - Ultra Atmospheric</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: #020617; 
+            overflow-x: hidden; 
+            margin: 0; 
+            color: white;
+        }
+
+        #root:empty::before {
+            content: "Yükleniyor...";
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #4f46e5;
+            font-size: 24px;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* --- ATMOSPHERIC LAYERS --- */
+        .atmosphere-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden; }
+
+        /* --- GÜNEŞ EFEKTLERİ (GERİ GETİRİLDİ & SOYUT) --- */
+        .sun-spot {
+            position: absolute;
+            top: -15vw; right: -15vw;
+            width: 70vw; height: 70vw;
+            /* lightgoldenrodyellow ve daha yumuşak geçişler */
+            background: radial-gradient(circle, rgba(250, 250, 210, 0.6) 0%, rgba(255, 255, 224, 0.3) 40%, transparent 70%);
+            filter: blur(80px);
+            mix-blend-mode: screen;
+            animation: sun-breath 6s ease-in-out infinite alternate;
+            z-index: 1;
+        }
+        .sun-fill {
+            position: absolute; inset: 0;
+            /* lightgoldenrodyellow temelli dolgu */
+            background: linear-gradient(to bottom left, rgba(250, 250, 210, 0.15), transparent 60%);
+            mix-blend-mode: overlay;
+            z-index: 0;
+        }
+        .sun-beam-container {
+            position: absolute; top: -60%; right: -60%; width: 220%; height: 220%;
+            animation: rotate-slow-wobble 180s linear infinite; /* Yavaşça dön ve dalgalan */
+            z-index: 1;
+            opacity: 0.7;
+        }
+        .sun-beam {
+            position: absolute; top: 50%; left: 50%; width: 60%; height: 100px; /* Daha geniş ve yumuşak */
+            /* lightgoldenrodyellow temelli, organik ve yumuşak ışık hüzmesi */
+            background: radial-gradient(ellipse at left, rgba(255, 255, 240, 0.6) 0%, rgba(250, 250, 210, 0.2) 50%, transparent 80%);
+            transform-origin: left center;
+            filter: blur(15px); /* Çok daha bulanık ve soyut */
+            border-radius: 50%;
+            mix-blend-mode: screen;
+        }
+        @keyframes sun-breath { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.15); opacity: 0.8; } }
+        /* Dönme ve hafif dalgalanma animasyonu */
+        @keyframes rotate-slow-wobble { 
+            0% { transform: rotate(0deg) scale(1); } 
+            50% { transform: rotate(180deg) scale(1.05); }
+            100% { transform: rotate(360deg) scale(1); } 
+        }
+
+        /* --- BULUT EFEKTLERİ (ESKİ TİP & BÜYÜTÜLMÜŞ & YAVAŞLATILMIŞ) --- */
+        .cloud-shape {
+            position: absolute;
+            background: #fff;
+            border-radius: 100px;
+            filter: blur(25px); /* Biraz daha az bulanık */
+            opacity: 0.85; /* Daha belirgin */
+        }
+        .cloud-shape::after, .cloud-shape::before {
+            content: ''; position: absolute; background: #fff; border-radius: 50%;
+        }
+        .cloud-shape::after { width: 50%; height: 100%; top: -50%; left: 15%; }
+        .cloud-shape::before { width: 40%; height: 120%; top: -60%; right: 15%; }
+        
+        /* Katman animasyonları (Süreler artırıldı = Hız azaldı) */
+        .cloud-layer-1 { animation: cloud-move 120s linear infinite; opacity: 0.8; z-index: 2; }
+        .cloud-layer-2 { animation: cloud-move 160s linear infinite reverse; opacity: 0.6; z-index: 1; }
+        .cloud-layer-3 { animation: cloud-move 200s linear infinite; opacity: 0.4; z-index: 0; }
+
+        @keyframes cloud-move { 
+            0% { transform: translateX(-120%); } 
+            100% { transform: translateX(120%); } 
+        }
+
+        /* --- YAĞMUR EFEKTLERİ (BELİRGİN) --- */
+        .rain-container { position: absolute; width: 100%; height: 100%; transform: skewX(-10deg); z-index: 3; }
+        .raindrop {
+            position: absolute;
+            top: -100px;
+            width: 2px; /* Daha kalın */
+            height: 80px; /* Daha uzun */
+            background: linear-gradient(to bottom, transparent, rgba(200, 230, 255, 0.9));
+            animation: fall linear infinite;
+            filter: drop-shadow(0 0 2px rgba(255,255,255,0.5));
+        }
+        @keyframes fall { to { transform: translateY(120vh); } }
+
+        /* --- KAR EFEKTLERİ (YENİ) --- */
+        .snow-container { position: absolute; width: 100%; height: 100%; z-index: 3; }
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            background: #fff;
+            border-radius: 50%;
+            opacity: 0.8;
+            animation: snow-fall linear infinite;
+        }
+        @keyframes snow-fall { 
+            0% { transform: translateY(-10px) rotate(0deg); } 
+            100% { transform: translateY(100vh) rotate(360deg); } 
+        }
+
+        /* --- ŞİMŞEK EFEKTİ --- */
+        .lightning-flash {
+            position: absolute; inset: 0; background: white; opacity: 0; z-index: 10; mix-blend-mode: overlay;
+        }
+        .flash-active { animation: flash 0.3s ease-out; }
+        @keyframes flash { 
+            0% { opacity: 0; } 10% { opacity: 0.8; } 20% { opacity: 0; } 
+            30% { opacity: 0.4; } 100% { opacity: 0; } 
+        }
+
+        /* --- UI STYLES --- */
+        .liquid-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; overflow: hidden; background: #0f172a; transition: background-color 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .noise-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 0.06; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E"); }
+        .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.7; mix-blend-mode: screen; animation: float 15s infinite ease-in-out alternate; transition: background 1.5s ease, transform 1.5s ease; }
+        .blob-1 { top: -20%; left: -20%; width: 70vw; height: 70vw; animation-duration: 20s; }
+        .blob-2 { bottom: -20%; right: -20%; width: 60vw; height: 60vw; animation-duration: 25s; animation-delay: -5s; }
+        .blob-3 { top: 30%; left: 30%; width: 50vw; height: 50vw; animation-duration: 18s; animation-delay: -10s; }
+        @keyframes float { 0% { transform: translate(0, 0) rotate(0deg) scale(1); } 50% { transform: translate(30px, 50px) rotate(10deg) scale(1.1); } 100% { transform: translate(-20px, 20px) rotate(-10deg) scale(0.95); } }
+
+        .glass-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 0 20px rgba(255, 255, 255, 0.05); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-input { background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff !important; font-weight: 500; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); transition: all 0.3s ease; }
+        .glass-input:focus { background: rgba(0, 0, 0, 0.5); border-color: rgba(255, 255, 255, 0.5); box-shadow: 0 0 0 4px rgba(255,255,255,0.1); outline: none; }
+        .glass-input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .glass-input::placeholder { color: rgba(255, 255, 255, 0.5); }
+        select.glass-input { appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
+        select.glass-input option { background-color: #1e293b; color: white; }
+        
+        .text-gradient { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% 200%; animation: gradient-flow 5s ease infinite; }
+        @keyframes gradient-flow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        
+        .city-illustration { width: 100%; height: 100%; max-height: 400px; object-fit: contain; filter: drop-shadow(0 30px 60px rgba(0,0,0,0.6)); animation: levitate 6s ease-in-out infinite; transform-style: preserve-3d; }
+        @keyframes levitate { 0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 30px 60px rgba(0,0,0,0.6)); } 50% { transform: translateY(-20px) scale(1.02); filter: drop-shadow(0 50px 70px rgba(0,0,0,0.4)); } }
+        
+        .suggestions-box { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; margin-top: 10px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .suggestion-item:hover { background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent); padding-left: 20px; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+        /* --- ERROR BOUNDARY --- */
+        .error-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; padding: 2rem; background: rgba(255,0,0,0.1); 
+            border: 1px solid rgba(255,0,0,0.3); border-radius: 20px; backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- GÜVENLİ ERROR BOUNDARY ---
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { hasError: false }; }
+            static getDerivedStateFromError(error) { return { hasError: true }; }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="error-container">
+                            <h2>Bir şeyler ters gitti.</h2>
+                            <button onClick={() => { localStorage.clear(); window.location.reload(); }} 
+                                    className="mt-4 px-4 py-2 bg-red-600 rounded-lg hover:bg-red-500 text-white font-bold">
+                                Uygulamayı Sıfırla
+                            </button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        const ELAZIG_IMAGE_URL = "https://images.unsplash.com/photo-1626105973718-299f1d041e06?q=80&w=1000&auto=format&fit=crop"; 
+        const COUNTRY_FLAGS = { "TR": "🇹🇷", "DE": "🇩🇪", "GB": "🇬🇧", "US": "🇺🇸", "FR": "🇫🇷", "IT": "🇮🇹", "ES": "🇪🇸", "JP": "🇯🇵", "CN": "🇨🇳", "RU": "🇷🇺", "BR": "🇧🇷", "IN": "🇮🇳" };
+        const normalizeText = (text) => text ? text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+
+        const getStorageItem = (key, defaultVal) => {
+            try {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : defaultVal;
+            } catch (e) { return defaultVal; }
+        };
+
+        const Icon = ({ name, size=20, className }) => {
+            const ref = useRef(null);
+            useEffect(() => {
+                if(ref.current && window.lucide) {
+                    ref.current.innerHTML = '';
+                    const i = document.createElement('i');
+                    i.setAttribute('data-lucide', name);
+                    i.className = className;
+                    i.setAttribute('width', size);
+                    i.setAttribute('height', size);
+                    ref.current.appendChild(i);
+                    window.lucide.createIcons({root: ref.current});
+                }
+            }, [name, size, className]);
+            return <span ref={ref} className="inline-flex"></span>;
+        }
+
+        const getMockData = (city) => ({
+            name: city || "İstanbul",
+            sys: { country: "TR" },
+            main: { temp: 24, humidity: 45, feels_like: 26 },
+            wind: { speed: 12 },
+            visibility: 10000,
+            weather: [{ main: "Clear", description: "açık", icon: "01d", id: 800 }],
+            dt: Math.floor(Date.now() / 1000)
+        });
+
+        const getMockForecast = () => ({
+            list: Array(5).fill(0).map((_, i) => ({
+                dt: Math.floor(Date.now() / 1000) + (i + 1) * 86400,
+                main: { temp: 22 + i },
+                weather: [{ main: "Clear", description: "açık", icon: "01d" }]
+            }))
+        });
+
+        // --- ATMOSPHERIC EFFECTS ---
+        const Atmosphere = ({ weather }) => {
+            const [flash, setFlash] = useState(false);
+            
+            const weatherInfo = (weather && weather.weather && weather.weather.length > 0) ? weather.weather[0] : { main: 'Clear', description: '', icon: '', id: 800 };
+            const main = weatherInfo.main;
+            const weatherId = weatherInfo.id;
+            const windSpeed = weather?.wind?.speed || 0;
+
+            const isSunny = main === 'Clear' && !weatherInfo.icon.includes('n');
+            const isRainy = main === 'Rain' || main === 'Drizzle' || main === 'Thunderstorm';
+            const isThunder = main === 'Thunderstorm';
+            const isPartlyCloudy = weatherId === 801 || weatherId === 802;
+            const isCloudy = main === 'Clouds' || main === 'Mist' || main === 'Fog';
+            const isSnowy = main === 'Snow';
+
+            useEffect(() => {
+                if (isThunder) {
+                    const triggerFlash = () => {
+                        setFlash(true);
+                        setTimeout(() => setFlash(false), 200 + Math.random() * 200);
+                        setTimeout(triggerFlash, Math.random() * 5000 + 2000);
+                    };
+                    const timer = setTimeout(triggerFlash, 1000);
+                    return () => clearTimeout(timer);
+                }
+                setFlash(false);
+            }, [isThunder]);
+
+            if (!weather) return null;
+
+            return (
+                <div className="atmosphere-layer">
+                    <div className={`lightning-flash ${flash ? 'flash-active' : ''}`}></div>
+
+                    {/* GÜNEŞ & ALTIN IŞIKLAR (GERİ GETİRİLDİ) */}
+                    {(isSunny || isPartlyCloudy) && (
+                        <>
+                            <div className="sun-fill"></div>
+                            <div className="sun-spot"></div>
+                            <div className="sun-beam-container">
+                                {/* Daha az sayıda ama daha doğal hareket eden, bulanık ışık hüzmeleri */}
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="sun-beam" style={{
+                                        transform: `rotate(${i * 60}deg) translateX(${i % 2 === 0 ? 10 : 30}px)`,
+                                        width: `${50 + Math.random() * 30}%`,
+                                        opacity: 0.5 + Math.random() * 0.3,
+                                        animationDelay: `${i * -2}s` // Farklı zamanlarda başlasın
+                                    }}></div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {/* BULUTLAR (BÜYÜTÜLMÜŞ VE YAYILMIŞ) */}
+                    {(isCloudy || isPartlyCloudy) && (
+                        <>
+                            {/* Üst Katman */}
+                            <div className="cloud-layer-1" style={{top: '5%', width: '120%', position: 'absolute'}}>
+                                <div className="cloud-shape" style={{width: '450px', height: '180px', left: '5%', transform: 'scale(1.4)'}}></div>
+                                <div className="cloud-shape" style={{width: '550px', height: '200px', left: '55%', transform: 'scale(1.5)'}}></div>
+                            </div>
+                            {/* Orta Katman */}
+                            <div className="cloud-layer-2" style={{top: '25%', width: '120%', position: 'absolute'}}>
+                                <div className="cloud-shape" style={{width: '400px', height: '150px', left: '35%', transform: 'scale(1.3)'}}></div>
+                            </div>
+                            {/* Alt Katman */}
+                            {!isPartlyCloudy && (
+                                <div className="cloud-layer-3" style={{top: '45%', width: '120%', position: 'absolute'}}>
+                                    <div className="cloud-shape" style={{width: '650px', height: '250px', left: '-10%', transform: 'scale(1.6)'}}></div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* YAĞMUR */}
+                    {isRainy && (
+                        <div className="rain-container" style={{ transform: `skewX(-${Math.min(windSpeed * 3, 20)}deg)` }}>
+                            {[...Array(100)].map((_, i) => (
+                                <div key={i} className="raindrop" style={{
+                                    left: `${Math.random() * 100}%`,
+                                    animationDuration: `${0.3 + Math.random() * 0.3}s`,
+                                    animationDelay: `${Math.random() * 2}s`,
+                                    opacity: 0.4 + Math.random() * 0.6,
+                                    height: `${60 + Math.random() * 40}px`
+                                }}></div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* KAR (YENİ) */}
+                    {isSnowy && (
+                        <div className="snow-container">
+                            {[...Array(100)].map((_, i) => (
+                                <div key={i} className="snowflake" style={{
+                                    left: `${Math.random() * 100}%`,
+                                    width: `${Math.random() * 6 + 3}px`, // Çeşitli boyutlar
+                                    height: `${Math.random() * 6 + 3}px`,
+                                    animationDuration: `${5 + Math.random() * 10}s`, // Çeşitli hızlar
+                                    animationDelay: `${Math.random() * 5}s`,
+                                    opacity: 0.6 + Math.random() * 0.4
+                                }}></div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const getLiquidTheme = (weather) => {
+            let theme = { bg: '#020617', blobs: ['#4f46e5', '#7c3aed', '#2563eb'], textGradient: 'from-blue-200 via-indigo-200 to-white', glassBorder: 'rgba(255,255,255,0.1)' };
+            if (!weather) return theme;
+            const weatherInfo = (weather.weather && weather.weather.length > 0) ? weather.weather[0] : { main: 'Clear' };
+            const main = weatherInfo.main;
+            const isNight = weatherInfo.icon.includes('n');
+
+            if (isNight) {
+                theme = { bg: '#000000', blobs: ['#1e1b4b', '#312e81', '#4c1d95'], textGradient: 'from-indigo-100 via-purple-100 to-blue-100', glassBorder: 'rgba(99, 102, 241, 0.3)' };
+            } else {
+                switch (main) {
+                    // Güneşli tema için renkleri lightgoldenrodyellow ile uyumlu hale getir
+                    case 'Clear': theme = { bg: '#0369a1', blobs: ['#fafad2', '#eee8aa', '#f0e68c'], textGradient: 'from-yellow-100 via-orange-50 to-white', glassBorder: 'rgba(250, 250, 210, 0.4)' }; break;
+                    case 'Clouds': theme = { bg: '#334155', blobs: ['#94a3b8', '#64748b', '#0ea5e9'], textGradient: 'from-gray-100 via-slate-200 to-white', glassBorder: 'rgba(255,255,255,0.3)' }; break;
+                    case 'Rain': case 'Drizzle': theme = { bg: '#0f172a', blobs: ['#0284c7', '#0369a1', '#0891b2'], textGradient: 'from-cyan-100 via-blue-100 to-white', glassBorder: 'rgba(56, 189, 248, 0.3)' }; break;
+                    case 'Thunderstorm': theme = { bg: '#1a0505', blobs: ['#450a0a', '#7f1d1d', '#581c87'], textGradient: 'from-red-200 via-purple-200 to-white', glassBorder: 'rgba(239, 68, 68, 0.4)' }; break;
+                    case 'Snow': theme = { bg: '#64748b', blobs: ['#e2e8f0', '#f8fafc', '#bae6fd'], textGradient: 'from-white via-blue-50 to-cyan-50', glassBorder: 'rgba(255,255,255,0.6)' }; break;
+                }
+            }
+            return theme;
+        };
+
+        const analyzeWeather = (weather) => {
+            if (!weather) return [];
+            const temp = weather.main?.temp || 0;
+            const wind = weather.wind?.speed || 0;
+            const weatherInfo = (weather.weather && weather.weather.length > 0) ? weather.weather[0] : { id: 800 };
+            const code = weatherInfo.id;
+            
+            let status = [];
+            // Temp Levels
+            if (temp < 10) {
+                if (temp <= -5) status.push({ type: 'temp', label: 'Dondurucu', level: 3, color: 'bg-indigo-600', icon: 'thermometer-snowflake' });
+                else if (temp <= 5) status.push({ type: 'temp', label: 'Soğuk', level: 2, color: 'bg-blue-600', icon: 'thermometer' });
+                else status.push({ type: 'temp', label: 'Serin', level: 1, color: 'bg-sky-400', icon: 'thermometer-sun' });
+            } else if (temp > 25) {
+                if (temp >= 35) status.push({ type: 'temp', label: 'Aşırı Sıcak', level: 3, color: 'bg-red-600', icon: 'flame' });
+                else if (temp >= 30) status.push({ type: 'temp', label: 'Sıcak', level: 2, color: 'bg-orange-500', icon: 'sun' });
+                else status.push({ type: 'temp', label: 'Ilıman', level: 1, color: 'bg-yellow-400', icon: 'sun' });
+            } else {
+                status.push({ type: 'temp', label: 'Normal', level: 0, color: 'bg-green-500', icon: 'smile' });
+            }
+            // Wind Levels
+            if (wind >= 20) status.push({ type: 'wind', label: 'Fırtına', level: 4, color: 'bg-red-700 animate-pulse', icon: 'tornado' });
+            else if (wind >= 10) status.push({ type: 'wind', label: 'Şiddetli', level: 3, color: 'bg-orange-600', icon: 'wind' });
+            else if (wind >= 5) status.push({ type: 'wind', label: 'Rüzgarlı', level: 2, color: 'bg-yellow-500', icon: 'wind' });
+            else status.push({ type: 'wind', label: 'Hafif Esinti', level: 1, color: 'bg-green-400', icon: 'wind' });
+            
+            // Precip Levels
+            if ((code >= 200 && code < 600) || (code >= 600 && code < 700)) {
+                if ((code >= 200 && code < 300) || (code >= 502 && code <= 504) || code === 602) status.push({ type: 'precip', label: 'Şiddetli Yağış', level: 3, color: 'bg-red-500', icon: 'cloud-lightning' });
+                else if (code === 501 || (code >= 611 && code <= 616)) status.push({ type: 'precip', label: 'Orta Yağış', level: 2, color: 'bg-blue-500', icon: 'cloud-rain' });
+                else status.push({ type: 'precip', label: 'Hafif Yağış', level: 1, color: 'bg-cyan-400', icon: 'cloud-drizzle' });
+            } else {
+                 status.push({ type: 'precip', label: 'Yağışsız', level: 0, color: 'bg-green-400', icon: 'cloud' });
+            }
+            return status;
+        };
+
+        const App = () => {
+            const [city, setCity] = useState(localStorage.getItem('last_city') || "İstanbul");
+            const [inputCity, setInputCity] = useState("");
+            const [selectedRegion, setSelectedRegion] = useState("ALL");
+            const [suggestions, setSuggestions] = useState([]);
+            const [showSuggestions, setShowSuggestions] = useState(false);
+            const [searchLoading, setSearchLoading] = useState(false);
+            
+            const [history, setHistory] = useState([]);
+            const [weather, setWeather] = useState(null);
+            const [forecast, setForecast] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [apiKey, setApiKey] = useState(localStorage.getItem('weather_api_key') || "");
+            const [showSettings, setShowSettings] = useState(false);
+            
+            const [favorites, setFavorites] = useState(() => getStorageItem('favorites', []));
+            const [errorMsg, setErrorMsg] = useState(null);
+            const [isDemo, setIsDemo] = useState(false);
+
+            const searchTimeout = useRef(null);
+
+            const isElazig = normalizeText(city).includes('elazig');
+            const theme = useMemo(() => getLiquidTheme(weather), [weather]);
+            const analysis = useMemo(() => analyzeWeather(weather), [weather]);
+
+            const handleInputChange = (e) => {
+                const value = e.target.value;
+                setInputCity(value);
+                if (searchTimeout.current) clearTimeout(searchTimeout.current);
+                if (value.length > 2 && !isDemo) {
+                    setSearchLoading(true);
+                    searchTimeout.current = setTimeout(() => fetchCitySuggestions(value), 400); 
+                } else {
+                    setSuggestions([]); setShowSuggestions(false); setSearchLoading(false);
+                }
+            };
+
+            const fetchCitySuggestions = async (query) => {
+                if (!apiKey || isDemo) return;
+                try {
+                    const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=5&appid=${apiKey}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const filteredData = selectedRegion === "ALL" ? data : data.filter(item => item.country === selectedRegion);
+                        setSuggestions(filteredData);
+                        setShowSuggestions(true);
+                    }
+                } catch (error) { console.error("Öneri hatası:", error); } finally { setSearchLoading(false); }
+            };
+
+            const selectSuggestion = (item) => {
+                const query = item.state ? `${item.name},${item.state},${item.country}` : `${item.name},${item.country}`;
+                setInputCity(item.name); setShowSuggestions(false); fetchData(query);
+            };
+
+            useEffect(() => {
+                if(!apiKey) { setShowSettings(true); return; }
+                if (apiKey === 'DEMO') setIsDemo(true);
+                if (city) fetchData(city);
+            }, [apiKey]);
+
+            const fetchData = async (targetCity, saveHistory = true, keyOverride = null) => {
+                const effectiveKey = keyOverride || apiKey;
+                
+                if (!effectiveKey) { setShowSettings(true); return; }
+                setLoading(true); setErrorMsg(null); setShowSuggestions(false);
+
+                if (effectiveKey === 'DEMO') {
+                    setTimeout(() => {
+                        setWeather(getMockData(targetCity));
+                        setForecast(getMockForecast());
+                        setCity(targetCity);
+                        setLoading(false);
+                    }, 500);
+                    return;
+                }
+
+                try {
+                    const encodedCity = encodeURIComponent(targetCity.trim());
+                    const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodedCity}&units=metric&lang=tr&appid=${effectiveKey}`);
+                    if(!res.ok) { 
+                        const d = await res.json().catch(() => ({})); 
+                        throw new Error(res.status === 404 ? `Şehir bulunamadı` : (d.message || "Bilinmeyen API hatası")); 
+                    }
+                    const data = await res.json();
+                    
+                    if (saveHistory && city && normalizeText(city) !== normalizeText(data.name)) {
+                        setHistory(prev => [...prev, city]);
+                    }
+
+                    setWeather(data);
+                    const fRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodedCity}&units=metric&lang=tr&appid=${effectiveKey}`);
+                    if (fRes.ok) {
+                        const fData = await fRes.json();
+                        setForecast(fData.list.filter((_, i) => i % 8 === 0).slice(0, 5));
+                    }
+                    setCity(data.name); setInputCity(""); localStorage.setItem('last_city', data.name);
+                } catch (err) { setErrorMsg(err.message); } finally { setLoading(false); }
+            };
+
+            const handleBack = () => {
+                if (history.length === 0) return;
+                const prevCity = history[history.length - 1];
+                const newHistory = history.slice(0, -1);
+                setHistory(newHistory);
+                fetchData(prevCity, false);
+            };
+
+            const toggleFavorite = () => {
+                let newFavs = favorites.includes(city) ? favorites.filter(c => c !== city) : [...favorites, city];
+                setFavorites(newFavs);
+                localStorage.setItem('favorites', JSON.stringify(newFavs));
+            };
+
+            const saveKey = () => {
+                const k = document.getElementById('apiKey').value;
+                if (!k) return;
+                localStorage.setItem('weather_api_key', k);
+                
+                if (k === 'DEMO') setIsDemo(true);
+                else setApiKey(k);
+                
+                setShowSettings(false);
+                // Yeni anahtarı doğrudan göndererek hemen veri çek
+                fetchData(city, true, k);
+            };
+
+            const startDemo = () => {
+                localStorage.setItem('weather_api_key', 'DEMO');
+                setApiKey('DEMO');
+                setIsDemo(true);
+                setShowSettings(false);
+                fetchData("İstanbul", true, 'DEMO');
+            };
+
+            // Weather Safe Check Helper
+            const safeWeather = weather && weather.weather && weather.weather.length > 0;
+
+            return (
+                <div className="w-full min-h-screen relative flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans text-white">
+                    
+                    {/* LIQUID BACKGROUND */}
+                    <div className="liquid-container" style={{backgroundColor: theme.bg}}>
+                        <div className="noise-overlay"></div> 
+                        <div className="blob blob-1" style={{background: theme.blobs[0]}}></div>
+                        <div className="blob blob-2" style={{background: theme.blobs[1]}}></div>
+                        <div className="blob blob-3" style={{background: theme.blobs[2]}}></div>
+                    </div>
+
+                    {/* ATMOSPHERIC EFFECTS LAYER */}
+                    <Atmosphere weather={weather} />
+
+                    {/* MAIN INTERFACE */}
+                    <div 
+                        className="glass-panel w-full max-w-6xl rounded-[48px] overflow-hidden relative z-10 flex flex-col lg:flex-row min-h-[750px]"
+                        style={{borderColor: theme.glassBorder}}
+                    >
+                        {/* LEFT SIDE */}
+                        <div className="w-full lg:w-5/12 p-10 flex flex-col justify-between relative">
+                            <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
+
+                            <div className="z-10 relative">
+                                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 mb-4">
+                                    <Icon name="map-pin" size={14}/>
+                                    <span className="text-xs font-bold tracking-widest uppercase">
+                                        {weather?.sys?.country ? `${COUNTRY_FLAGS[weather.sys.country] || "🌍"} ${weather.sys.country}` : "TR"}
+                                    </span>
+                                </div>
+                                <h1 className={`text-6xl font-black tracking-tighter uppercase drop-shadow-2xl bg-gradient-to-r ${theme.textGradient} bg-clip-text text-transparent`}>
+                                    {weather?.name || "..."}
+                                </h1>
+                                <p className="text-white/70 text-lg mt-2 font-medium">
+                                    {weather ? new Date().toLocaleDateString('tr-TR', {weekday:'long', day:'numeric', month:'long'}) : ''}
+                                </p>
+                            </div>
+
+                            <div className="flex-grow flex items-center justify-center relative py-8">
+                                {isElazig ? (
+                                    <img src={ELAZIG_IMAGE_URL} alt="Elazığ" className="city-illustration" />
+                                ) : (
+                                    <div className="relative animate-float transform scale-125">
+                                        <div className="absolute inset-0 bg-white/30 blur-[80px] rounded-full mix-blend-overlay"></div>
+                                        <div className="relative z-10 text-[180px] drop-shadow-2xl">
+                                            {safeWeather && weather.weather[0].main === 'Clear' ? '☀️' : 
+                                             safeWeather && weather.weather[0].main === 'Clouds' ? '☁️' : 
+                                             safeWeather && weather.weather[0].main === 'Rain' ? '🌧️' : 
+                                             safeWeather && weather.weather[0].main === 'Snow' ? '❄️' : 
+                                             safeWeather && weather.weather[0].main === 'Thunderstorm' ? '⚡' : '⛅'}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="z-10">
+                                {weather && (
+                                    <div>
+                                        <div className={`text-[130px] font-bold leading-none tracking-tighter bg-gradient-to-br ${theme.textGradient} bg-clip-text text-transparent drop-shadow-xl`}>
+                                            {Math.round(weather.main?.temp || 0)}°
+                                        </div>
+                                        <div className="text-2xl font-medium text-white/90 pl-4 border-l-4 border-white/30 ml-2 mt-2">
+                                            {safeWeather && weather.weather[0].description 
+                                                ? weather.weather[0].description.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+                                                : "..."}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* RIGHT SIDE */}
+                        <div className="w-full lg:w-7/12 p-10 bg-black/20 backdrop-blur-xl flex flex-col gap-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/5 blur-[100px] rounded-full pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
+
+                            {/* SEARCH BAR & REGION SELECTOR */}
+                            <div className="relative z-50">
+                                <div className="relative flex gap-3">
+                                    <div className="relative min-w-[80px]">
+                                        <select 
+                                            value={selectedRegion} 
+                                            onChange={(e) => { setSelectedRegion(e.target.value); setInputCity(""); setSuggestions([]); }}
+                                            className="glass-input w-full h-full rounded-2xl px-4 text-center cursor-pointer font-bold appearance-none hover:bg-white/10 transition"
+                                        >
+                                            <option value="ALL">🌍</option>
+                                            <option value="TR">🇹🇷</option>
+                                            <option value="DE">🇩🇪</option>
+                                            <option value="GB">🇬🇧</option>
+                                            <option value="US">🇺🇸</option>
+                                            <option value="FR">🇫🇷</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="relative flex-grow group">
+                                        <input 
+                                            value={inputCity}
+                                            onChange={handleInputChange}
+                                            placeholder={searchLoading ? "Aranıyor..." : "Dünyada herhangi bir şehir ara..."}
+                                            className="glass-input w-full rounded-2xl px-6 py-5 pl-14 text-lg" 
+                                        />
+                                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-white/70 transition">
+                                            {searchLoading ? <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin"></div> : <Icon name="search" size={24}/>}
+                                        </div>
+                                    </div>
+                                    
+                                    <button onClick={() => fetchData(inputCity)} className="glass-input rounded-2xl px-6 hover:bg-white/10 transition">
+                                        <Icon name="arrow-right" size={24}/>
+                                    </button>
+
+                                    {/* BACK BUTTON */}
+                                    <button 
+                                        onClick={handleBack}
+                                        disabled={history.length === 0}
+                                        className={`glass-input rounded-2xl px-4 flex items-center justify-center transition ${history.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}`}
+                                        title="Önceki Şehir"
+                                    >
+                                        <Icon name="arrow-left" size={24}/>
+                                    </button>
+                                </div>
+
+                                {/* API Suggestions Dropdown */}
+                                {showSuggestions && suggestions.length > 0 && (
+                                    <div className="suggestions-box animate-in fade-in slide-in-from-top-2 duration-300 absolute w-full left-0 right-0">
+                                        {suggestions.map((s, i) => (
+                                            <div key={i} onClick={() => selectSuggestion(s)} className="suggestion-item flex items-center justify-between text-sm font-medium">
+                                                <div className="flex items-center gap-3">
+                                                    <Icon name="map-pin" size={14} className="opacity-50"/> 
+                                                    <span>{s.name} <span className="opacity-50 font-normal">{s.state ? `, ${s.state}` : ''}</span></span>
+                                                </div>
+                                                <div className="opacity-70 bg-white/10 px-2 py-1 rounded text-xs">
+                                                    {COUNTRY_FLAGS[s.country] || s.country}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* FAVORITES */}
+                            {favorites.length > 0 && (
+                                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                                    {favorites.map(fav => (
+                                        <button key={fav} onClick={() => fetchData(fav)} className="flex items-center gap-2 bg-white/5 hover:bg-white/20 px-5 py-2.5 rounded-full border border-white/10 transition text-sm font-semibold whitespace-nowrap shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform">
+                                            {fav}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* STATUS REPORTS */}
+                            {weather && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {analysis.map((item, i) => (
+                                        <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex flex-col justify-between relative overflow-hidden group hover:bg-white/10 transition">
+                                            <div className="flex justify-between items-start mb-2 relative z-10">
+                                                <span className="text-xs uppercase font-bold tracking-widest opacity-60">
+                                                    {item.type === 'temp' ? 'Sıcaklık' : item.type === 'wind' ? 'Rüzgar' : 'Yağış'}
+                                                </span>
+                                                <Icon name={item.icon} size={16} className="opacity-80"/>
+                                            </div>
+                                            <div className="text-lg font-bold z-10 relative">{item.label}</div>
+                                            
+                                            {/* Progress Bar Background */}
+                                            <div className="w-full h-1.5 bg-white/10 rounded-full mt-3 overflow-hidden z-10 relative">
+                                                <div 
+                                                    className={`h-full rounded-full ${item.color} shadow-[0_0_10px_currentColor]`} 
+                                                    style={{ width: `${(item.level + 1) * 25}%` }}
+                                                ></div>
+                                            </div>
+
+                                            {/* Decorative glow */}
+                                            <div className={`absolute -bottom-4 -right-4 w-16 h-16 rounded-full blur-[30px] opacity-20 group-hover:opacity-40 transition ${item.color.split(' ')[0]}`}></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* DETAILS GRID */}
+                            {weather && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {[
+                                        { label: "Rüzgar", val: weather.wind?.speed || 0, unit: "km/s" },
+                                        { label: "Nem", val: weather.main?.humidity || 0, unit: "%" },
+                                        { label: "His", val: Math.round(weather.main?.feels_like || 0), unit: "°" },
+                                        { label: "Görüş", val: (weather.visibility ? (weather.visibility/1000).toFixed(1) : 0), unit: "km" },
+                                    ].map((item, idx) => (
+                                        <div key={idx} className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center justify-center text-center">
+                                            <div className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-1">{item.label}</div>
+                                            <div className="text-xl font-bold">{item.val}<span className="text-xs font-normal opacity-60 ml-0.5">{item.unit}</span></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* FORECAST */}
+                            <div className="mt-auto">
+                                <h3 className="text-white/60 text-sm font-bold uppercase tracking-widest mb-3 pl-1">5 Günlük Tahmin</h3>
+                                <div className="space-y-2">
+                                    {forecast && forecast.map((item, i) => (
+                                        <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition group">
+                                            <span className="w-24 font-medium text-white/80">{new Date(item.dt*1000).toLocaleDateString('tr-TR', {weekday:'long'})}</span>
+                                            <div className="flex items-center gap-3">
+                                                {/* Güvenli Erişim */}
+                                                {item.weather && item.weather[0] && (
+                                                    <>
+                                                        <Icon name={item.weather[0].main === 'Clear' ? 'sun' : item.weather[0].main === 'Rain' ? 'cloud-rain' : 'cloud'} size={18} className="text-white/60 group-hover:text-white transition"/>
+                                                        <span className="text-sm text-white/40 capitalize hidden sm:block w-24">{item.weather[0].description}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <span className="font-bold text-lg w-12 text-right">{Math.round(item.main?.temp || 0)}°</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {/* TOP RIGHT CONTROLS */}
+                    <div className="absolute top-6 right-6 flex gap-3 z-50">
+                        <button onClick={toggleFavorite} className={`w-12 h-12 flex items-center justify-center rounded-full glass-input hover:bg-white/20 transition ${favorites.includes(city) ? 'text-red-400 bg-white/10 border-red-500/30' : 'text-white'}`}>
+                            <Icon name="heart" size={20}/>
+                        </button>
+                        <button onClick={() => setShowSettings(true)} className="w-12 h-12 flex items-center justify-center rounded-full glass-input hover:bg-white/20 transition">
+                            <Icon name="settings" size={20}/>
+                        </button>
+                    </div>
+
+                    {/* ERROR TOAST */}
+                    {errorMsg && (
+                        <div className="fixed top-10 left-1/2 -translate-x-1/2 glass-panel border-red-500/30 text-red-200 px-6 py-3 rounded-full shadow-2xl z-[100] animate-bounce flex items-center gap-2">
+                            <Icon name="alert-circle" size={20}/> {errorMsg}
+                        </div>
+                    )}
+
+                    {/* SETTINGS */}
+                    {showSettings && (
+                        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
+                            <div className="glass-panel rounded-3xl p-8 max-w-sm w-full relative">
+                                <h2 className="text-2xl font-bold mb-2">Başlangıç Ayarları</h2>
+                                <p className="text-white/50 text-sm mb-6">OpenWeatherMap API anahtarınızı giriniz.</p>
+                                <input id="apiKey" defaultValue={apiKey} placeholder="API Key..." className="glass-input w-full p-4 rounded-xl mb-4 text-lg" />
+                                <button onClick={saveKey} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-indigo-500/30">Kaydet</button>
+                                
+                                <div className="flex items-center gap-3 my-4 opacity-50"><div className="h-px bg-white w-full"></div><span>veya</span><div className="h-px bg-white w-full"></div></div>
+                                
+                                <button onClick={startDemo} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-emerald-500/30">
+                                    Demo Moduyla Başla
+                                </button>
+
+                                <button onClick={() => setShowSettings(false)} className="w-full mt-4 text-white/40 text-sm hover:text-white transition">Kapat</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
+    </script>
+</body>
+</html>
